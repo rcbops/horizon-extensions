@@ -67,6 +67,40 @@ class LaunchView(View):
         if not template.launch(request, args):
             return HttpResponseBadRequest('Heat failed to launch template.')
         return HttpResponse(urlresolvers.reverse(self.pattern_name))
+    
+class SolutionsView(View):
+    
+    def get(self, request, *args, **kwargs):
+        def get_list():
+            return [{
+            'id':t.id, 
+            'title':t.title, 
+            'logo':t.logo, 
+            'short_desc':t.short_description
+            } for t in load_templates()]
+        
+        def get_details(template_id):
+            template = load_templates().find_by_id(template_id)
+            
+            return {'id':template.id,
+                    'launch_url':urlresolvers.reverse(
+                        'horizon:rackspace:heat_store:launch',
+                        args=[template.id]),                    
+                    'logo':template.logo,
+                    'title':template.title,
+                    'long_description':template.long_description,
+                    'architecture':template.architecture,
+                    'design_specs':template.design_specs,
+                    'parameters':template.get_parameter_types(request)
+                    }       
+        
+        if 'template_id' in kwargs:
+            json_data = get_details(kwargs['template_id'])
+        else:
+            json_data = get_list()
+            
+            
+        return HttpResponse(json.dumps(json_data),mimetype='application/json')
 
 
 def load_templates():

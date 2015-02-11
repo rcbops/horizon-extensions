@@ -42,6 +42,27 @@ var horizonApp = angular.module('hz', dependencies)
             $scope.closeAlert = function (index) {
                 $scope.alerts.splice(index, 1);
             };
+            
+            horizon.init()
+            horizon.modals.modal_spinner(gettext("Loading Solutions"));
+
+            $http.get('/rackspace/solutions').
+                success(function(data){
+                    $scope.templates = data;
+                    
+                    for (i = 0; i < $scope.templates.length; i++) {
+                        $scope.templates[i].title_safe = $sce.trustAsHtml($scope.templates[i].title);
+                        $scope.templates[i].short_desc_safe = $sce.trustAsHtml($scope.templates[i].short_desc);
+                        $scope.templates[i].long_desc_safe = $sce.trustAsHtml($scope.templates[i].long_desc);
+                        $scope.templates[i].architecture_safe = $sce.trustAsHtml($scope.templates[i].architecture);
+                    }
+                    
+                    horizon.modals.spinner.modal('hide');
+                    
+                    }).
+                error(function(){
+                    $scope.alerts.push({type: 'danger', msg: 'Could not load solutions catalog.'});
+                    });
 
             $scope.parse_parameter = function (parameter) {
                 var parameter_details;
@@ -134,75 +155,88 @@ var horizonApp = angular.module('hz', dependencies)
                 return '<div>' + parameter_details + '</div>';
             };
 
-            $scope.templates = rpc_templates;
+            //$scope.templates = rpc_templates;
 
-            for (i = 0; i < $scope.templates.length; i++) {
-                $scope.templates[i].title_safe = $sce.trustAsHtml($scope.templates[i].title);
-                $scope.templates[i].short_desc_safe = $sce.trustAsHtml($scope.templates[i].short_desc);
-                $scope.templates[i].long_desc_safe = $sce.trustAsHtml($scope.templates[i].long_desc);
-                $scope.templates[i].architecture_safe = $sce.trustAsHtml($scope.templates[i].architecture);
-            }
+            //for (i = 0; i < $scope.templates.length; i++) {
+                //$scope.templates[i].title_safe = $sce.trustAsHtml($scope.templates[i].title);
+                //$scope.templates[i].short_desc_safe = $sce.trustAsHtml($scope.templates[i].short_desc);
+                //$scope.templates[i].long_desc_safe = $sce.trustAsHtml($scope.templates[i].long_desc);
+                //$scope.templates[i].architecture_safe = $sce.trustAsHtml($scope.templates[i].architecture);
+            //}
 
-            $scope.more_info = function (table) {
-                var modalInstance,
-                    templateHeader = ' ' +
-                        '<div class="modal-header">' +
-                        '    <img ng-if="table.logo!=\'None\'" ng-src="{$table.logo$}" class="launch-logo">' +
-                        '</div>',
-                    templateBody = ' ' +
-                        '<div class="modal-body">' +
-                        '    <h2 ng-bind-html="table.title_safe"></h2><div ng-bind-html="table.long_desc_safe"></div>' +
-                        '    <h3>Architecture</h3><div ng-bind-html="table.architecture_safe"></div>' +
-                        '    <h3>Design Specs</h3><ul class="launch-design-specs">',
-                    templateFooter = ' ' +
-                        '<div class="modal-footer">' +
-                        '    <button class="btn btn-primary" ng-disabled="!templateForm.$valid" ng-click="ok()">Launch Solution</button>' +
-                        '    <button class="btn btn-warning" ng-click="cancel()">Cancel</button>' +
-                        '</div>',
-                    templateText;
-
-                for (i = 0; i < table.design_specs.length; i++) {
-                    templateBody += '<li>' + table.design_specs[i] + '</li>';
-                }
-
-                templateBody += '    </ul><h3>Parameters</h3>' +
-                    '<form name="templateForm">';
-
-                for (i = 0; i < table.parameters.length; i++) {
-                    templateBody += $scope.parse_parameter(table.parameters[i]);
-                }
-
-                templateBody += '    </form>' +
-                    '</div>';
-
-                templateText = templateHeader + templateBody + templateFooter;
-
-                modalInstance = $modal.open({
-                    template: templateText,
-                    controller: 'ModalInstanceCtrl',
-                    size: 'lg',
-                    resolve: {
-                        table: function () {
-                            return table;
-                        },
-                        parameters: function () {
-                            return $scope.parameters;
-                        }
+            $scope.more_info = function (solution) {
+                var solution_id = solution.id;
+                
+                horizon.modals.modal_spinner(gettext("Loading Solution"));
+                
+                $http.get('/rackspace/solutions/' + solution_id).success(function (data){
+                    var table = data,
+                        modalInstance,
+                        templateHeader = ' ' +
+                            '<div class="modal-header">' +
+                            '    <img ng-if="table.logo!=\'None\'" ng-src="{$table.logo$}" class="launch-logo">' +
+                            '</div>',
+                        templateBody = ' ' +
+                            '<div class="modal-body">' +
+                            '    <h2 ng-bind-html="table.title_safe"></h2><div ng-bind-html="table.long_desc_safe"></div>' +
+                            '    <h3>Architecture</h3><div ng-bind-html="table.architecture_safe"></div>' +
+                            '    <h3>Design Specs</h3><ul class="launch-design-specs">',
+                        templateFooter = ' ' +
+                            '<div class="modal-footer">' +
+                            '    <button class="btn btn-primary" ng-disabled="!templateForm.$valid" ng-click="ok()">Launch Solution</button>' +
+                            '    <button class="btn btn-warning" ng-click="cancel()">Cancel</button>' +
+                            '</div>',
+                        templateText;
+                            
+                    for (i = 0; i < table.design_specs.length; i++) {
+                        templateBody += '<li>' + table.design_specs[i] + '</li>';
                     }
-                });
+    
+                    templateBody += '    </ul><h3>Parameters</h3>' +
+                        '<form name="templateForm">';
+    
+                    for (i = 0; i < table.parameters.length; i++) {
+                        templateBody += $scope.parse_parameter(table.parameters[i]);
+                    }
+    
+                    templateBody += '    </form>' +
+                        '</div>';
+    
+                    templateText = templateHeader + templateBody + templateFooter;
+                    
+                    horizon.modals.spinner.modal('hide');
+    
+                    modalInstance = $modal.open({
+                        template: templateText,
+                        controller: 'ModalInstanceCtrl',
+                        size: 'lg',
+                        resolve: {
+                            table: function () {
+                                return table;
+                            },
+                            parameters: function () {
+                                return $scope.parameters;
+                            }
+                        }
+                    });
+    
+                    modalInstance.result.then(function (solution) {
+                        horizon.modals.modal_spinner(gettext("Working"));
+                        $http.post(solution.launch_url, solution.details).
+                            success(function (data) {
+                                horizon.modals.spinner.modal('hide');
+                                window.location = data; // server sends redirect URL in body
+                            }).
+                            error(function () {
+                                horizon.modals.spinner.modal('hide');
+                                $scope.alerts.push({type: 'danger', msg: 'Failed to launch solution.'});
+                            });
+                    });
 
-                modalInstance.result.then(function (solution) {
-                    horizon.modals.modal_spinner(gettext("Working"));
-                    $http.post(solution.launch_url, solution.details).
-                        success(function (data) {
-                            horizon.modals.spinner.modal('hide');
-                            window.location = data; // server sends redirect URL in body
-                        }).
-                        error(function () {
-                            horizon.modals.spinner.modal('hide');
-                            $scope.alerts.push({type: 'danger', msg: 'Failed to launch solution.'});
-                        });
-                });
+                }).
+                error(function (data, status, headers, config, status_text){
+                $scope.alerts.push({type: 'danger', msg: 'error loading template ' + solution.title + '.'});
+                })
             };
 
         });
